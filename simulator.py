@@ -20,10 +20,13 @@ class CardGame:
             'Marriage': tk.BooleanVar(value=True),
             'Divorce': tk.BooleanVar(value=True),
             'Staircase': tk.BooleanVar(value=True),
-            'Sandwich': tk.BooleanVar(value=True)
+            'Sandwich': tk.BooleanVar(value=True),
+            'Autoplay': tk.BooleanVar(value=True)
         }
 
         self.create_settings_screen()
+        self.state = 'IDLE'
+        self.slap_timer = None
 
     def create_settings_screen(self):
         self.settings_frame = ttk.Frame(self.master, padding="10")
@@ -39,38 +42,100 @@ class CardGame:
     def start_game(self):
         self.settings_frame.destroy()
         self.pile.rules = {rule: var.get() for rule, var in self.rules.items()}
+        self.autoplay = self.rules['Autoplay'].get()
 
-        self.card_label = tk.Label(self.master)
+        self.game_frame = tk.Frame(self.master)
+        self.game_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.canvas = tk.Canvas(self.game_frame, bg='white')
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        self.card_label = tk.Label(self.canvas, bg='white')
         self.card_label.pack(pady=20)
 
-        self.info_label = tk.Label(self.master, text="", font=("Arial", 14))
+        self.info_label = tk.Label(self.canvas, text="", font=("Arial", 14), bg='white')
         self.info_label.pack(pady=20)
+
+        if not self.autoplay:
+            self.master.bind('<space>', self.handle_slap)
 
         self.next_card()
 
     def next_card(self):
+        self.state = 'SHOWING_CARD'
         self.pile.add_card()
         card = self.pile.top
         
-        # Load and display the card image
         image_path = f"cards/{card.filename()}"
-        image = Image.open(image_path)
-        image = image.resize((200, 300), Image.LANCZOS)
-        photo = ImageTk.PhotoImage(image)
-        self.card_label.config(image=photo)
-        self.card_label.image = photo
+        try:
+            image = Image.open(image_path)
+            image = image.resize((200, 300), Image.LANCZOS)
+            photo = ImageTk.PhotoImage(image)
+            self.card_label.config(image=photo)
+            self.card_label.image = photo
+        except FileNotFoundError:
+            print(f"Image file not found: {image_path}")
+            self.card_label.config(text=f"{card}")
 
         self.info_label.config(text="")
+        self.set_background_color('white')
         
-        slap_result = self.pile.slap()
-        if slap_result != 'No Slap':
-            self.master.after(1000, self.show_slap, slap_result)
+        self.slap_result = self.pile.slap()
+        
+        if self.autoplay:
+            if self.slap_result != 'No Slap':
+                self.master.after(1000, self.show_slap, self.slap_result)
+            else:
+                self.master.after(1000, self.next_card)
         else:
-            self.master.after(1000, self.next_card)
+            self.state = 'WAITING_FOR_SLAP'
+            self.slap_timer = self.master.after(1000, self.check_missed_slap)
+
+    def handle_slap(self, event):
+        if self.state == 'WAITING_FOR_SLAP':
+            self.master.after_cancel(self.slap_timer)
+            if self.slap_result != 'No Slap':
+                self.show_slap(self.slap_result)
+            else:
+                self.show_no_slap()
 
     def show_slap(self, slap_result):
+        self.state = 'SHOWING_RESULT'
+        self.set_background_color('green')
         self.info_label.config(text=f"Slap: {slap_result}")
+        self.master.after(1000, self.restart_game)
+
+    def show_no_slap(self):
+        self.state = 'SHOWING_RESULT'
+        self.set_background_color('red')
+        self.info_label.config(text="No Slap")
         self.master.after(1000, self.next_card)
+
+    def check_missed_slap(self):
+        if self.slap_result != 'No Slap':
+            self.state = 'SHOWING_RESULT'
+            self.set_background_color('red')
+            self.info_label.config(text=f"Missed Slap: {self.slap_result}")
+            self.master.after(1000, self.restart_game)
+        else:
+            self.next_card()
+
+    def restart_game(self):
+        self.pile = Pile()
+        self.pile.rules = {rule: var.get() for rule, var in self.rules.items()}
+        self.next_card()
+
+    def set_background_color(self, color):
+        if color == 'green':
+            pastel_color = '#90EE90'  # Light green
+        elif color == 'red':
+            pastel_color = '#FFB3BA'  # Light red (pink)
+        else:
+            pastel_color = color  # Use the original color if it's not green or red
+
+        self.canvas.config(bg=pastel_color)
+        self.card_label.config(bg=pastel_color)
+        self.info_label.config(bg=pastel_color)
 
 def main():
     root = tk.Tk()
