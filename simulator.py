@@ -24,6 +24,9 @@ class CardGame:
             'Autoplay': tk.BooleanVar(value=True)
         }
 
+        self.card_delay = tk.StringVar(value="1.0")
+        self.slap_time = tk.StringVar(value="1.0")
+
         self.create_settings_screen()
         self.state = 'IDLE'
         self.slap_timer = None
@@ -36,6 +39,12 @@ class CardGame:
 
         for rule, var in self.rules.items():
             ttk.Checkbutton(self.settings_frame, text=rule, variable=var).pack(anchor='w')
+
+        ttk.Label(self.settings_frame, text="Time between cards (seconds):").pack(anchor='w', pady=(10, 0))
+        ttk.Entry(self.settings_frame, textvariable=self.card_delay, width=5).pack(anchor='w')
+
+        ttk.Label(self.settings_frame, text="Time to slap (seconds):").pack(anchor='w', pady=(10, 0))
+        ttk.Entry(self.settings_frame, textvariable=self.slap_time, width=5).pack(anchor='w')
 
         ttk.Button(self.settings_frame, text="Start Game", command=self.start_game).pack(pady=20)
 
@@ -58,6 +67,9 @@ class CardGame:
 
         if not self.autoplay:
             self.master.bind('<space>', self.handle_slap)
+
+        self.card_delay_ms = int(float(self.card_delay.get()) * 1000)
+        self.slap_time_ms = int(float(self.slap_time.get()) * 1000)
 
         self.next_card()
 
@@ -84,12 +96,12 @@ class CardGame:
         
         if self.autoplay:
             if self.slap_result != 'No Slap':
-                self.master.after(1000, self.show_slap, self.slap_result)
+                self.master.after(self.card_delay_ms, self.show_slap, self.slap_result)
             else:
-                self.master.after(1000, self.next_card)
+                self.master.after(self.card_delay_ms, self.next_card)
         else:
             self.state = 'WAITING_FOR_SLAP'
-            self.slap_timer = self.master.after(1000, self.check_missed_slap)
+            self.slap_timer = self.master.after(self.slap_time_ms, self.check_missed_slap)
 
     def handle_slap(self, event):
         if self.state == 'WAITING_FOR_SLAP':
@@ -109,21 +121,24 @@ class CardGame:
         self.state = 'SHOWING_RESULT'
         self.set_background_color('red')
         self.info_label.config(text="No Slap")
-        self.master.after(1000, self.next_card)
+        self.master.after(1000, self.schedule_next_card)
 
     def check_missed_slap(self):
         if self.slap_result != 'No Slap':
             self.state = 'SHOWING_RESULT'
             self.set_background_color('red')
             self.info_label.config(text=f"Missed Slap: {self.slap_result}")
-            self.master.after(1000, self.restart_game)
+            self.master.after(1000, self.schedule_next_card)
         else:
-            self.next_card()
+            self.schedule_next_card()
+
+    def schedule_next_card(self):
+        self.master.after(self.card_delay_ms, self.next_card)
 
     def restart_game(self):
         self.pile = Pile()
         self.pile.rules = {rule: var.get() for rule, var in self.rules.items()}
-        self.next_card()
+        self.schedule_next_card()
 
     def set_background_color(self, color):
         if color == 'green':
