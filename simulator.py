@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from PIL import Image, ImageTk
 from pile import Pile
 import time
@@ -10,11 +11,39 @@ class CardGame:
         self.master.geometry("300x450")
 
         self.pile = Pile()
-        
-        self.card_label = tk.Label(master)
+        self.rules = {
+            'Red 10': tk.BooleanVar(value=True),
+            'Double Cards': tk.BooleanVar(value=True),
+            'Double Value': tk.BooleanVar(value=True),
+            'Add to 10': tk.BooleanVar(value=True),
+            'Top-Bottom': tk.BooleanVar(value=True),
+            'Marriage': tk.BooleanVar(value=True),
+            'Divorce': tk.BooleanVar(value=True),
+            'Staircase': tk.BooleanVar(value=True),
+            'Sandwich': tk.BooleanVar(value=True)
+        }
+
+        self.create_settings_screen()
+
+    def create_settings_screen(self):
+        self.settings_frame = ttk.Frame(self.master, padding="10")
+        self.settings_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(self.settings_frame, text="Select Rules", font=("Arial", 16)).pack(pady=10)
+
+        for rule, var in self.rules.items():
+            ttk.Checkbutton(self.settings_frame, text=rule, variable=var).pack(anchor='w')
+
+        ttk.Button(self.settings_frame, text="Start Game", command=self.start_game).pack(pady=20)
+
+    def start_game(self):
+        self.settings_frame.destroy()
+        self.pile.rules = {rule: var.get() for rule, var in self.rules.items()}
+
+        self.card_label = tk.Label(self.master)
         self.card_label.pack(pady=20)
 
-        self.info_label = tk.Label(master, text="", font=("Arial", 14))
+        self.info_label = tk.Label(self.master, text="", font=("Arial", 14))
         self.info_label.pack(pady=20)
 
         self.next_card()
