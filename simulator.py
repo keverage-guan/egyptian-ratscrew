@@ -96,16 +96,18 @@ class CardGame:
         
         if self.autoplay:
             if self.slap_result != 'No Slap':
-                self.master.after(self.card_delay_ms, self.show_slap, self.slap_result)
+                self.master.after(self.slap_time_ms, self.show_slap, self.slap_result)
             else:
                 self.master.after(self.card_delay_ms, self.next_card)
         else:
-            self.state = 'WAITING_FOR_SLAP'
-            self.slap_timer = self.master.after(self.slap_time_ms, self.check_missed_slap)
-
+            if self.slap_result != 'No Slap':
+                self.slap_timer = self.master.after(self.slap_time_ms, self.check_missed_slap)
+            else:
+                self.slap_timer = self.master.after(self.card_delay_ms, self.next_card)
     def handle_slap(self, event):
-        if self.state == 'WAITING_FOR_SLAP':
-            self.master.after_cancel(self.slap_timer)
+        if self.state == 'WAITING_FOR_SLAP' or self.state == 'SHOWING_CARD':
+            if self.slap_timer:
+                self.master.after_cancel(self.slap_timer)
             if self.slap_result != 'No Slap':
                 self.show_slap(self.slap_result)
             else:
@@ -124,13 +126,10 @@ class CardGame:
         self.master.after(1000, self.schedule_next_card)
 
     def check_missed_slap(self):
-        if self.slap_result != 'No Slap':
-            self.state = 'SHOWING_RESULT'
-            self.set_background_color('red')
-            self.info_label.config(text=f"Missed Slap: {self.slap_result}")
-            self.master.after(1000, self.schedule_next_card)
-        else:
-            self.schedule_next_card()
+        self.state = 'SHOWING_RESULT'
+        self.set_background_color('red')
+        self.info_label.config(text=f"Missed Slap: {self.slap_result}")
+        self.master.after(1000, self.schedule_next_card)
 
     def schedule_next_card(self):
         self.master.after(self.card_delay_ms, self.next_card)
